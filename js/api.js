@@ -1,38 +1,11 @@
 const KAS_API_URL='https://script.google.com/macros/s/AKfycbzbFbPGl-UHZuibZWHTtYfXna6QHHQqKLYHcCGMxYFd73ZQmdvMy5CSUGarx3xhivx9/exec';
-
 const KasApi=(()=>{
-  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-  const normalizeTransaction=t=>({id:t?.id??'',timestamp:t?.timestamp??'',tanggal:t?.tanggal??'',tipe:String(t?.tipe??t?.jenis??'').toUpperCase(),kategori:t?.kategori??'',nominal:Number(t?.nominal??0),keterangan:t?.keterangan??'',idWarga:t?.idWarga??'',admin:t?.admin??'',status:String(t?.status??'AKTIF').toUpperCase()});
-  const normalize=d=>{if(d?.transaksi) d.transaksi=d.transaksi.map(normalizeTransaction); if(d?.transactions)d.transactions=d.transactions.map(normalizeTransaction); return d};
-  async function get(action,params={}){
-    const q=new URLSearchParams({action,_:Date.now(),...params});
-    let r;
-    try{r=await fetch(`${KAS_API_URL}?${q}`,{cache:'no-store',credentials:'omit'});}catch(e){throw Error('Tidak dapat terhubung ke server. Periksa koneksi internet.');}
-    const text=await r.text(); let d;
-    try{d=JSON.parse(text);}catch(e){throw Error('Server tidak mengembalikan JSON yang valid.');}
-    if(!r.ok||d.success===false)throw Error(d.message||'Permintaan gagal.');
-    return normalize(d);
-  }
-  function post(action,body={}){
-    return new Promise((resolve,reject)=>{
-      const name=`kasrt_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-      const iframe=document.createElement('iframe'); iframe.name=name; iframe.hidden=true;
-      const form=document.createElement('form'); form.method='POST'; form.target=name; form.action=`${KAS_API_URL}?action=${encodeURIComponent(action)}`; form.hidden=true;
-      Object.entries({...body}).forEach(([key,value])=>{const input=document.createElement('input');input.type='hidden';input.name=key;input.value=value==null?'':String(value);form.appendChild(input);});
-      document.body.append(iframe,form); let done=false;
-      const cleanup=()=>{iframe.remove();form.remove();};
-      const finish=async()=>{if(done)return;done=true;cleanup();try{resolve(await get('initialData'));}catch(e){reject(e);}};
-      iframe.addEventListener('load',()=>setTimeout(finish,900)); form.submit();
-      setTimeout(()=>{if(!done){done=true;cleanup();reject(Error('Server belum memberikan konfirmasi. Silakan sinkronkan data sebelum mengirim ulang.'));}},15000);
-    });
-  }
-  async function createTransaction(body){const before=await get('initialData');const ids=new Set((before.transaksi||[]).map(x=>x.id));await post('createTransaction',body);for(let i=0;i<10;i++){await sleep(500);const d=await get('initialData');const tx=(d.transaksi||[]).find(x=>!ids.has(x.id)&&x.status==='AKTIF'&&Number(x.nominal)===Number(body.nominal));if(tx)return d;}return await get('initialData');}
-  return{
-    getInitialData:()=>get('initialData'),getDashboard:()=>get('dashboard'),getTransactions:()=>get('transactions'),getWarga:()=>get('warga'),getIuran:()=>get('iuran'),getStatusIuran:()=>get('statusIuran'),getProgram:()=>get('program'),getAudit:b=>get('audit',b),getDiagnostic:()=>get('diagnostic'),
-    login:password=>post('login',{password}),logout:token=>post('logout',{sessionToken:token}),
-    createTransaction,updateTransaction:b=>post('updateTransaction',b),cancelTransaction:b=>post('cancelTransaction',b),
-    createWarga:b=>post('saveWarga',b),updateWarga:b=>post('editWarga',b),deleteWarga:b=>post('deleteWarga',b),
-    createProgram:b=>post('saveProgram',b),updateProgress:b=>post('updateProgress',b),
-    updateConfig:b=>post('updateConfig',b),changePassword:b=>post('changePassword',b)
-  };
+ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+ const normalizeTransaction=t=>({id:t?.id??'',timestamp:t?.timestamp??'',tanggal:t?.tanggal??'',tipe:String(t?.tipe??t?.jenis??'').toUpperCase(),kategori:t?.kategori??'',nominal:Number(t?.nominal??0),keterangan:t?.keterangan??'',idWarga:t?.idWarga??'',admin:t?.admin??'',status:String(t?.status??'AKTIF').toUpperCase()});
+ const normalize=d=>{if(d?.transaksi)d.transaksi=d.transaksi.map(normalizeTransaction);if(d?.transactions)d.transactions=d.transactions.map(normalizeTransaction);return d};
+ async function get(action,params={}){const q=new URLSearchParams({action,_:Date.now(),...params});let r;try{r=await fetch(`${KAS_API_URL}?${q}`,{cache:'no-store',credentials:'omit'});}catch(e){throw Error('Tidak dapat terhubung ke server. Periksa koneksi internet.')}const text=await r.text();let d;try{d=JSON.parse(text)}catch(e){throw Error('Server tidak mengembalikan JSON yang valid.')}if(!r.ok||d.success===false)throw Error(d.message||'Permintaan gagal.');return normalize(d)}
+ function post(action,body={}){return new Promise((resolve,reject)=>{const name=`kasrt_${Date.now()}_${Math.random().toString(36).slice(2)}`,iframe=document.createElement('iframe'),form=document.createElement('form');iframe.name=name;iframe.hidden=true;form.method='POST';form.target=name;form.action=`${KAS_API_URL}?action=${encodeURIComponent(action)}`;form.hidden=true;Object.entries(body).forEach(([k,v])=>{const i=document.createElement('input');i.type='hidden';i.name=k;i.value=v==null?'':String(v);form.appendChild(i)});document.body.append(iframe,form);let done=false;const clean=()=>{iframe.remove();form.remove()};const finish=async()=>{if(done)return;done=true;clean();try{resolve(await get('initialData'))}catch(e){reject(e)}};iframe.addEventListener('load',()=>setTimeout(finish,700));form.submit();setTimeout(()=>{if(!done){done=true;clean();reject(Error('Server belum memberikan konfirmasi. Sinkronkan data sebelum mengirim ulang.'))}},15000)})}
+ async function login(password){return get('login',{password})}
+ async function createTransaction(body){const before=await get('initialData');const ids=new Set((before.transaksi||[]).map(x=>x.id));await post('createTransaction',body);for(let i=0;i<10;i++){await sleep(450);const d=await get('initialData');const tx=(d.transaksi||[]).find(x=>!ids.has(x.id)&&x.status==='AKTIF'&&Number(x.nominal)===Number(body.nominal));if(tx)return d}return get('initialData')}
+ return{getInitialData:()=>get('initialData'),getDashboard:()=>get('dashboard'),getTransactions:()=>get('transactions'),getWarga:()=>get('warga'),getIuran:()=>get('iuran'),getStatusIuran:()=>get('statusIuran'),getProgram:()=>get('program'),getAudit:b=>get('audit',b),getDiagnostic:()=>get('diagnostic'),login,logout:token=>post('logout',{sessionToken:token}),createTransaction,updateTransaction:b=>post('updateTransaction',b),cancelTransaction:b=>post('cancelTransaction',b),createWarga:b=>post('saveWarga',b),updateWarga:b=>post('editWarga',b),deleteWarga:b=>post('deleteWarga',b),createProgram:b=>post('saveProgram',b),updateProgress:b=>post('updateProgress',b),updateConfig:b=>post('updateConfig',b),changePassword:b=>post('changePassword',b)};
 })();
